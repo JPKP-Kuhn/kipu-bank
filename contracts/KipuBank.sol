@@ -101,7 +101,6 @@ contract KipuBank {
         (bool success, ) = msg.sender.call{value: _value}("");
         if (!success) revert TransferFailed();
         emit WithdrawOk(msg.sender, _value, "Withdraw Success!");
-
     }
 
    
