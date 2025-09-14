@@ -13,7 +13,7 @@ contract KipuBank {
 
     uint256 public totalBalance;
 
-    uint256 public constant minimumDeposit = 1 ether;
+    uint256 public constant minimumDeposit = 0.01 ether;
 
     mapping (address => uint256) private accountsBalance;
 
