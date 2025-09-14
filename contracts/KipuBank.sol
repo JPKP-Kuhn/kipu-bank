@@ -4,21 +4,24 @@ pragma solidity ^0.8.30;
 /// @author JPKP-Kuhn
 contract KipuBank {
     /// @notice Total count of deposits and withdraws
-    uint public depositCount;
-    uint public withdrawCount;
+    uint256 public depositCount;
+    uint256 public withdrawCount;
 
-    // Global limit or deposit
-    uint public immutable bankCap;
-    uint public immutable withdrawLimit;
+    /// @notice Global limit or deposit
+    uint256 public immutable bankCap;
+    uint256 public immutable withdrawLimit;
 
-    uint public constant minimumDeposit = 1 ether;
+    uint256 public totalBalance;
 
-    mapping (address => uint) private accountsBalance;
-    address public immutable owner;
+    uint256 public constant minimumDeposit = 1 ether;
 
+    mapping (address => uint256) private accountsBalance;
 
-    /// @dev Custom error for zero-value deposits or withdrawals
+    /// @dev Custom error for zero-value deposits or withdrawls
     error ZeroAmount();
+
+    /// @dev Custom error for minimun deposit value
+    error MinimunDepositRequired();
 
     /// @dev Custom error when deposit would exceed global bank cap
     error ExceedsBankCap();
@@ -35,7 +38,7 @@ contract KipuBank {
     /// @dev Custom error for reentrancy attempt
     error ReentrancyDetected();
     
-    // @notice Flag to prevent reentrancy attacks
+    /// @dev Modifier to prevent reentrancy attacks in functions that perform externall calls
     bool private locked;
     modifier noReentrancy(){
         if (locked) revert ReentrancyDetected();
@@ -44,13 +47,14 @@ contract KipuBank {
         locked = false;
     }
 
+    /// @notice Event emmitted on successful deposit and withdraw
     event DepositOk(address indexed user, uint value, bytes feedback);
     event WithdrawOk(address indexed user, uint value, bytes feedback);
     
+    /// @dev bankcap and withdrawlimit are in ETH
     constructor(uint _bankcap, uint _withdrawlimit) {
-        owner = msg.sender;
-        bankCap = _bankcap * 1e18;
-        withdrawLimit = _withdrawlimit * 1e18;
+        bankCap = _bankcap * 1 ether;
+        withdrawLimit = _withdrawlimit * 1 ether;
     }
 
     function _incrementDeposit() private {
@@ -72,28 +76,30 @@ contract KipuBank {
      function getAccountBalance() external view returns (uint) {
         return accountsBalance[msg.sender];
     }
-    // Fazer o padrão Checks-Effects-Interactions
 
-    // Deposit tokens, usar um evento pra isso
+    /// @dev Deposit
     function deposit() external payable{
         if (msg.value == 0) revert ZeroAmount();
-        if (accountsBalance[msg.sender] + msg.value > bankCap) revert ExceedsBankCap();
+        if (msg.value < minimumDeposit) revert MinimunDepositRequired();
+        if (totalBalance + msg.value > bankCap) revert ExceedsBankCap();
         
         accountsBalance[msg.sender] += msg.value;
+        totalBalance += msg.value;
         emit DepositOk(msg.sender, msg.value, "Deposit Success!");
         _incrementDeposit();
     }
 
-    // Withdraw funds usar um evento pra isso
+    /// @dev Withdraw, Follows CEI: checks conditions, effects state, then interacts with transfer
     function withdraw(uint _value) external noReentrancy {
         if (_value == 0) revert ZeroAmount();
         if (_value > withdrawLimit) revert ExceedsWithdrawLimit();
         if (_value > accountsBalance[msg.sender]) revert InsufficientBalance();
 
         accountsBalance[msg.sender] -= _value;
+        totalBalance -= _value;
         _incrementWithdraw();
-        (bool withdrawSuccess, ) = msg.sender.call{value: _value}("");
-        if (!withdrawSuccess) revert TransferFailed();
+        (bool success, ) = msg.sender.call{value: _value}("");
+        if (!success) revert TransferFailed();
         emit WithdrawOk(msg.sender, _value, "Withdraw Success!");
 
     }
