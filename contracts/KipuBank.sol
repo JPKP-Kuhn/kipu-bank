@@ -78,7 +78,7 @@ contract KipuBank {
     }
 
     /// @dev Deposit
-    function deposit() external payable{
+    function deposit() external payable {
         if (msg.value == 0) revert ZeroAmount();
         if (msg.value < minimumDeposit) revert MinimunDepositRequired();
         if (totalBalance + msg.value > bankCap) revert ExceedsBankCap();
@@ -95,11 +95,16 @@ contract KipuBank {
         if (_value > withdrawLimit) revert ExceedsWithdrawLimit();
         if (_value > accountsBalance[msg.sender]) revert InsufficientBalance();
 
+        // Effects
         accountsBalance[msg.sender] -= _value;
         totalBalance -= _value;
         _incrementWithdraw();
+
+        // Interaction
         (bool success, ) = msg.sender.call{value: _value}("");
         if (!success) revert TransferFailed();
+
+        // Emit event
         emit WithdrawOk(msg.sender, _value, "Withdraw Success!");
     }
 
